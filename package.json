@@ -1,0 +1,17 @@
+{
+  "name": "sheetview-dashboard",
+  "version": "1.0.0",
+  "description": "Interactive Excel spreadsheet viewer built with HTML, JS, CSS, and SheetJS",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx -y http-server -p 3000 -c-1"
+  },
+  "keywords": [
+    "excel",
+    "viewer",
+    "dashboard",
+    "sheetjs"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}

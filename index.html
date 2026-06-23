@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SheetView - Đọc & Phân tích Excel</title>
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Lucide Icons (UMD build - bắt buộc cho createIcons) -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+    <!-- SheetJS (xlsx) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- PDF split & ZIP -->
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar or Header -->
+        <header class="app-header">
+            <div class="header-logo">
+                <i data-lucide="file-spreadsheet" class="logo-icon"></i>
+                <div class="logo-text">
+                    <h1>SheetView</h1>
+                    <span>Đọc & Phân tích Excel</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <label for="fileInput" class="btn btn-primary file-select-btn">
+                    <i data-lucide="folder-open"></i>
+                    Chọn file Excel
+                </label>
+                <button id="themeToggleBtn" class="btn btn-icon" title="Đổi giao diện">
+                    <i data-lucide="sun" id="themeIconSun"></i>
+                    <i data-lucide="moon" id="themeIconMoon" class="hidden"></i>
+                </button>
+            </div>
+        </header>
+
+        <main class="app-main">
+            <!-- Drop Zone Area -->
+            <section class="upload-section" id="uploadSection">
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="file-input">
+                <div class="drop-zone" id="dropZone">
+                    <label for="fileInput" class="drop-zone-label">
+                        <div class="drop-icon-wrapper">
+                            <i data-lucide="cloud-upload" class="drop-icon"></i>
+                        </div>
+                        <h3>Kéo thả file Excel vào đây</h3>
+                        <p>hoặc nhấn nút bên dưới để chọn file</p>
+                        <p class="file-hint">Hỗ trợ .xlsx, .xls và .csv (tối đa 50MB)</p>
+                        <span class="btn btn-primary">Chọn file</span>
+                    </label>
+                </div>
+            </section>
+
+            <!-- Workspace Section (Hidden by default, shown when workbook is loaded) -->
+            <section class="workspace-section hidden" id="workspaceSection">
+                <!-- Info Bar & File Stats -->
+                <div class="file-info-bar">
+                    <div class="file-meta">
+                        <i data-lucide="file-text" class="meta-icon"></i>
+                        <div>
+                            <h4 id="fileNameDisplay">sales_data.xlsx</h4>
+                            <p id="fileSizeDisplay">2.4 MB • 3 Sheets</p>
+                        </div>
+                    </div>
+                    <button id="createQrBtn" class="btn btn-primary btn-sm hidden" type="button" title="Tạo mã QR cho toàn bộ bảng">
+                        <i data-lucide="qr-code"></i>
+                        Tạo QR
+                    </button>
+                </div>
+
+                <!-- Toolbar (Search, Filter, Page Size) -->
+                <div class="toolbar">
+                    <div class="search-box">
+                        <i data-lucide="search" class="search-icon"></i>
+                        <input type="text" id="searchInput" placeholder="Tìm kiếm trong sheet...">
+                        <button id="clearSearchBtn" class="clear-btn hidden">
+                            <i data-lucide="x" class="clear-icon"></i>
+                        </button>
+                    </div>
+                    <div class="toolbar-controls">
+                        <div class="control-group">
+                            <label for="viewModeSelect">Chế độ:</label>
+                            <select id="viewModeSelect" class="form-select">
+                                <option value="list">Danh sách</option>
+                                <option value="group">Nhóm theo Liên hệ</option>
+                            </select>
+                        </div>
+                        <div class="control-group hidden" id="groupFilterWrap">
+                            <label for="groupFilterSelect">Nhóm liên hệ:</label>
+                            <select id="groupFilterSelect" class="form-select group-filter-select">
+                                <option value="all">— Tất cả nhóm —</option>
+                            </select>
+                        </div>
+                        <div class="control-group" id="pageSizeWrap">
+                            <label for="pageSizeSelect">Hiển thị:</label>
+                            <select id="pageSizeSelect" class="form-select">
+                                <option value="10">10 dòng</option>
+                                <option value="25" selected>25 dòng</option>
+                                <option value="50">50 dòng</option>
+                                <option value="100">100 dòng</option>
+                                <option value="250">250 dòng</option>
+                                <option value="350">350 dòng</option>
+                                <option value="550">550 dòng</option>
+                            </select>
+                        </div>
+                        <div class="row-counter" id="rowCounter">
+                            Hiển thị 0-0 / 0 dòng
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Spreadsheet Table View -->
+                <div class="spreadsheet-container card">
+                    <div class="table-responsive">
+                        <table class="spreadsheet-table" id="spreadsheetTable">
+                            <thead id="tableHead">
+                                <!-- Dynamic headers -->
+                            </thead>
+                            <tbody id="tableBody">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Table Pagination -->
+                <div class="pagination-container" id="paginationContainer">
+                    <button class="btn btn-outline btn-sm" id="prevPageBtn" disabled>
+                        <i data-lucide="chevron-left"></i> Trước
+                    </button>
+                    <div class="page-numbers" id="pageNumbers">
+                        <!-- Dynamic page links -->
+                    </div>
+                    <button class="btn btn-outline btn-sm" id="nextPageBtn" disabled>
+                        Sau <i data-lucide="chevron-right"></i>
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <footer class="app-footer">
+            <p>Made by MVTN dev</p>
+        </footer>
+    </div>
+
+    <!-- Notification system -->
+    <div class="notification-container" id="notificationContainer"></div>
+
+    <!-- Hidden PDF picker for QR matching -->
+    <input type="file" id="pdfInput" accept=".pdf,application/pdf" class="file-input hidden" aria-hidden="true">
+
+    <!-- QR Statistics Modal -->
+    <div class="modal-overlay hidden" id="qrStatsModal" role="dialog" aria-labelledby="qrStatsTitle" aria-modal="true">
+        <div class="modal-card qr-stats-modal">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <i data-lucide="qr-code" class="modal-title-icon"></i>
+                    <h2 id="qrStatsTitle">Thống kê đối chiếu QR</h2>
+                </div>
+                <button type="button" class="btn btn-icon modal-close-btn" id="qrStatsCloseBtn" title="Đóng">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <p class="modal-subtitle" id="qrStatsSubtitle"></p>
+            <div class="qr-stats-alert hidden" id="qrStatsAlert"></div>
+            <div class="qr-stats-summary" id="qrStatsSummary"></div>
+            <div class="qr-stats-panels">
+                <div class="qr-stats-panel qr-stats-panel--found">
+                    <h3><i data-lucide="check-circle"></i> Đã khớp <span id="qrFoundCount" class="qr-stats-badge qr-stats-badge--success">0</span></h3>
+                    <div class="qr-stats-table-wrap">
+                        <table class="qr-stats-table" id="qrFoundTable">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Họ và tên</th>
+                                    <th>CCCD</th>
+                                    <th>Trang PDF</th>
+                                    <th>Cảnh báo</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="qr-stats-panel qr-stats-panel--missing-pdf">
+                    <h3><i data-lucide="file-x"></i> Không có trong PDF <span id="qrMissingPdfCount" class="qr-stats-badge qr-stats-badge--danger">0</span></h3>
+                    <p class="qr-panel-hint">Có trong Excel, không tìm thấy trong PDF</p>
+                    <div class="qr-stats-table-wrap">
+                        <table class="qr-stats-table" id="qrMissingPdfTable">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Họ và tên</th>
+                                    <th>CCCD</th>
+                                    <th>Cảnh báo</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="qr-stats-panel qr-stats-panel--missing-excel">
+                    <h3><i data-lucide="table-2"></i> Không có trong Excel <span id="qrMissingExcelCount" class="qr-stats-badge qr-stats-badge--warning">0</span></h3>
+                    <p class="qr-panel-hint">Có trong PDF, không tìm thấy trong Excel</p>
+                    <div class="qr-stats-table-wrap">
+                        <table class="qr-stats-table" id="qrMissingExcelTable">
+                            <thead>
+                                <tr>
+                                    <th>Trang PDF</th>
+                                    <th>Họ và tên</th>
+                                    <th>CCCD</th>
+                                    <th>Cảnh báo</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <p id="loadingText">Đang xử lý dữ liệu...</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
